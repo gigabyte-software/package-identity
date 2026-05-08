@@ -2,6 +2,7 @@
 
 namespace Gigabyte\Identity\Services;
 
+use Gigabyte\Identity\Contracts\DomainResolver;
 use Gigabyte\Identity\Contracts\Provisionable;
 use Gigabyte\Identity\Models\LoginCode;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -144,7 +145,16 @@ class IdentityService
         $domain = Str::lower(Str::after($email, '@'));
         $allowedDomains = config('identity.allowed_domains', []);
 
-        if (empty($allowedDomains) || ! in_array($domain, $allowedDomains, true)) {
+        $allowed = ! empty($allowedDomains) && in_array($domain, $allowedDomains, true);
+
+        if (! $allowed) {
+            $resolver = app()->bound(DomainResolver::class)
+                ? app(DomainResolver::class)
+                : null;
+            $allowed = $resolver?->isDomainAllowed($domain) ?? false;
+        }
+
+        if (! $allowed) {
             return null;
         }
 

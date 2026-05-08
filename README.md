@@ -69,6 +69,40 @@ class User extends Authenticatable implements Provisionable
 
 Then set `IDENTITY_ALLOWED_DOMAINS` to a comma-separated list of domains.
 
+### DomainResolver (Database-Driven Domains)
+
+For applications that need to resolve allowed domains from a database (or any dynamic source), bind an implementation of `Gigabyte\Identity\Contracts\DomainResolver` in your service provider:
+
+```php
+use Gigabyte\Identity\Contracts\DomainResolver;
+
+class AppServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        $this->app->bind(DomainResolver::class, MyDomainResolver::class);
+    }
+}
+```
+
+Your resolver must implement a single method:
+
+```php
+use Gigabyte\Identity\Contracts\DomainResolver;
+
+class MyDomainResolver implements DomainResolver
+{
+    public function isDomainAllowed(string $domain): bool
+    {
+        return DB::table('allowed_domains')->where('domain', $domain)->exists();
+    }
+}
+```
+
+The package checks `config('identity.allowed_domains')` first. If the domain is not found there, it falls back to the bound `DomainResolver` (if any). If neither allows the domain, provisioning is denied.
+
+This is fully backwards-compatible — if no `DomainResolver` is bound, behaviour is identical to previous versions.
+
 ### Sanctum Token Model
 
 By default, the package overrides Sanctum's `PersonalAccessToken` model to use prefixed table names. To disable this and manage Sanctum yourself, set `identity.override_sanctum_model` to `false` in the config.

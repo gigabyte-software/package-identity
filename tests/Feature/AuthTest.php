@@ -175,3 +175,29 @@ test('does not provision user from disallowed domain', function () {
     $this->assertDatabaseMissing('users', ['email' => 'jane@disallowed.com']);
     $this->assertDatabaseCount('identity_login_codes', 0);
 });
+
+test('bound DomainResolver allows provisioning for domains not in config', function () {
+    Mail::fake();
+    config([
+        'identity.allowed_domains' => [],
+        'identity.mailable' => Gigabyte\Identity\Mail\LoginCodeMail::class,
+    ]);
+
+    $resolver = new class implements Gigabyte\Identity\Contracts\DomainResolver {
+        public function isDomainAllowed(string $domain): bool
+        {
+            return $domain === 'dynamic.com';
+        }
+    };
+
+    app()->instance(Gigabyte\Identity\Contracts\DomainResolver::class, $resolver);
+
+    $response = $this->postJson('/api/identity/auth/login', ['email' => 'bob.smith@dynamic.com']);
+
+    $response->assertOk();
+    $this->assertDatabaseHas('users', [
+        'email' => 'bob.smith@dynamic.com',
+        'name' => 'Bob Smith',
+    ]);
+    $this->assertDatabaseHas('identity_login_codes', ['email' => 'bob.smith@dynamic.com']);
+});
