@@ -70,7 +70,7 @@ return [
     |--------------------------------------------------------------------------
     */
 
-    'token_inactivity_days' => (int) env('API_TOKEN_INACTIVITY_DAYS', 30),
+    'token_inactivity_days' => (int) env('API_TOKEN_INACTIVITY_DAYS', 21),
     'token_name' => env('API_TOKEN_NAME', 'api-token'),
 
     /*
