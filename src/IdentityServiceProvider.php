@@ -20,6 +20,8 @@ class IdentityServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $this->configureSanctum();
+
         if (config('identity.override_sanctum_model', true)) {
             Sanctum::usePersonalAccessTokenModel(PersonalAccessToken::class);
         }
@@ -49,5 +51,29 @@ class IdentityServiceProvider extends ServiceProvider
                 __DIR__.'/../resources/views' => resource_path('views/vendor/identity'),
             ], 'identity-views');
         }
+    }
+
+    /**
+     * Configure Sanctum to work correctly with the sliding inactivity window.
+     *
+     * - Disables Sanctum's absolute expiration (based on created_at) so tokens
+     *   don't hard-expire regardless of activity.
+     * - Disables Sanctum's automatic last_used_at tracking so the
+     *   EnsureTokenIsActive middleware can read the genuine last activity
+     *   timestamp before deciding to extend or expire the session.
+     * - Registers an authentication callback that bypasses Sanctum's built-in
+     *   created_at-based expiration, deferring lifetime management entirely
+     *   to EnsureTokenIsActive.
+     */
+    protected function configureSanctum(): void
+    {
+        config([
+            'sanctum.expiration' => null,
+            'sanctum.last_used_at' => false,
+        ]);
+
+        Sanctum::authenticateAccessTokensUsing(function ($accessToken, $isValid) {
+            return (bool) $accessToken;
+        });
     }
 }

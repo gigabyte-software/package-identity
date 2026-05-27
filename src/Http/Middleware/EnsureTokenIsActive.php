@@ -14,13 +14,19 @@ class EnsureTokenIsActive
     {
         $token = $request->user()?->currentAccessToken();
 
-        if ($token instanceof PersonalAccessToken && $token->last_used_at instanceof Carbon) {
-            $maxDays = (int) config('identity.token_inactivity_days', 30);
+        if ($token instanceof PersonalAccessToken) {
+            if ($token->last_used_at instanceof Carbon) {
+                $maxDays = (int) config('identity.token_inactivity_days', 21);
 
-            if ($token->last_used_at->lt(now()->subDays($maxDays))) {
-                $token->delete();
+                if ($token->last_used_at->lt(now()->subDays($maxDays))) {
+                    $token->delete();
 
-                return response()->json(['message' => 'Token expired due to inactivity.'], 401);
+                    return response()->json(['message' => 'Token expired due to inactivity.'], 401);
+                }
+            }
+
+            if ($token->getKey()) {
+                $token->forceFill(['last_used_at' => now()])->save();
             }
         }
 

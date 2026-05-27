@@ -35,7 +35,7 @@ php artisan migrate
 | `IDENTITY_TABLE_PREFIX` | Database table prefix | `identity_` |
 | `IDENTITY_MAGIC_LINK_ROUTE` | Named route for magic link URL | `login.magic` |
 | `IDENTITY_CODE_EXPIRY_MINUTES` | Code expiry in minutes | `10` |
-| `API_TOKEN_INACTIVITY_DAYS` | Sliding token expiry in days | `30` |
+| `API_TOKEN_INACTIVITY_DAYS` | Sliding token expiry in days | `21` |
 | `API_TOKEN_NAME` | Sanctum token name | `api-token` |
 | `IDENTITY_DEMO_LOGIN` | Enable demo login (dev only) | `false` |
 | `IDENTITY_ALLOWED_DOMAINS` | Comma-separated auto-provision domains | _(none)_ |
