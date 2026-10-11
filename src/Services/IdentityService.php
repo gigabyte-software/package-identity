@@ -83,7 +83,68 @@ class IdentityService
             return null;
         }
 
-        return $this->consumeLoginCode($loginCode);
+        return $this->consumeLoginCode($loginCode, false);
+    }
+
+    /**
+     * A same-app path carried on a magic link as `?redirect=`.
+     *
+     * Only a root-relative path is accepted. Absolute URLs and
+     * protocol-relative paths are refused so the parameter cannot
+     * send the browser to another site. The path is decoded a few
+     * times first, so an encoded `//` cannot slip through.
+     */
+    public function intendedWebPath(mixed $redirect): ?string
+    {
+        if (! is_string($redirect)) {
+            return null;
+        }
+
+        $redirect = trim($redirect);
+        if ($redirect === '') {
+            return null;
+        }
+
+        $candidate = $redirect;
+        for ($pass = 0; $pass < 3; $pass++) {
+            if (! $this->isSameAppPath($candidate)) {
+                return null;
+            }
+
+            $decoded = rawurldecode($candidate);
+            if ($decoded === $candidate) {
+                return $redirect;
+            }
+
+            $candidate = $decoded;
+        }
+
+        return $this->isSameAppPath($candidate) ? $redirect : null;
+    }
+
+    /**
+     * The path must stay on this app. A URL inside the query or fragment
+     * is data, not the navigation target.
+     */
+    private function isSameAppPath(string $redirect): bool
+    {
+        if (preg_match('/[\x00-\x1F\x7F]/', $redirect) === 1) {
+            return false;
+        }
+
+        $path = $redirect;
+        $query = strpos($redirect, '?');
+        $fragment = strpos($redirect, '#');
+        $cut = $query === false ? $fragment : ($fragment === false ? $query : min($query, $fragment));
+        if ($cut !== false) {
+            $path = substr($redirect, 0, $cut);
+        }
+
+        if ($path === '' || ! str_starts_with($path, '/') || str_starts_with($path, '//') || str_starts_with($path, '/\\')) {
+            return false;
+        }
+
+        return ! str_contains($path, '\\') && ! str_contains($path, '://');
     }
 
     /**
@@ -168,12 +229,16 @@ class IdentityService
         return $userModel::provisionFromEmail(Str::lower($email), $name);
     }
 
-    private function consumeLoginCode(LoginCode $loginCode): Authenticatable
+    private function consumeLoginCode(LoginCode $loginCode, bool $deleteSiblings = true): Authenticatable
     {
         $userModel = config('identity.user_model');
         $user = $userModel::where('email', $loginCode->email)->firstOrFail();
 
-        LoginCode::where('email', $loginCode->email)->delete();
+        if ($deleteSiblings) {
+            LoginCode::where('email', $loginCode->email)->delete();
+        } else {
+            $loginCode->delete();
+        }
 
         return $user;
     }
