@@ -83,7 +83,36 @@ class IdentityService
             return null;
         }
 
-        return $this->consumeLoginCode($loginCode);
+        return $this->consumeLoginCode($loginCode, false);
+    }
+
+    /**
+     * A same-app path carried on a magic link as `?redirect=`.
+     *
+     * Only a root-relative path is accepted. Absolute URLs and
+     * protocol-relative paths are refused so the parameter cannot
+     * send the browser to another site.
+     */
+    public function intendedWebPath(mixed $redirect): ?string
+    {
+        if (! is_string($redirect)) {
+            return null;
+        }
+
+        $redirect = trim($redirect);
+        if ($redirect === '' || preg_match('/[\x00-\x1F\x7F]/', $redirect) === 1) {
+            return null;
+        }
+
+        if (! str_starts_with($redirect, '/') || str_starts_with($redirect, '//') || str_starts_with($redirect, '/\\')) {
+            return null;
+        }
+
+        if (str_contains($redirect, '\\') || str_contains($redirect, '://')) {
+            return null;
+        }
+
+        return $redirect;
     }
 
     /**
@@ -168,12 +197,16 @@ class IdentityService
         return $userModel::provisionFromEmail(Str::lower($email), $name);
     }
 
-    private function consumeLoginCode(LoginCode $loginCode): Authenticatable
+    private function consumeLoginCode(LoginCode $loginCode, bool $deleteSiblings = true): Authenticatable
     {
         $userModel = config('identity.user_model');
         $user = $userModel::where('email', $loginCode->email)->firstOrFail();
 
-        LoginCode::where('email', $loginCode->email)->delete();
+        if ($deleteSiblings) {
+            LoginCode::where('email', $loginCode->email)->delete();
+        } else {
+            $loginCode->delete();
+        }
 
         return $user;
     }

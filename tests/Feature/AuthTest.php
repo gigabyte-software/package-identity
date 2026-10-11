@@ -201,3 +201,36 @@ test('bound DomainResolver allows provisioning for domains not in config', funct
     ]);
     $this->assertDatabaseHas('identity_login_codes', ['email' => 'bob.smith@dynamic.com']);
 });
+
+test('a magic token does not consume sibling login codes', function () {
+    User::factory()->create(['email' => 'alice@example.com']);
+
+    LoginCode::create([
+        'email' => 'alice@example.com',
+        'code' => '111111',
+        'token' => 'token-a',
+        'expires_at' => now()->addMinutes(10),
+    ]);
+    LoginCode::create([
+        'email' => 'alice@example.com',
+        'code' => '222222',
+        'token' => 'token-b',
+        'expires_at' => now()->addMinutes(10),
+    ]);
+
+    $found = app(Gigabyte\Identity\Services\IdentityService::class)->verifyMagicToken('token-a');
+
+    expect($found)->not->toBeNull()
+        ->and($found->email)->toBe('alice@example.com');
+    $this->assertDatabaseMissing('identity_login_codes', ['token' => 'token-a']);
+    $this->assertDatabaseHas('identity_login_codes', ['token' => 'token-b']);
+});
+
+test('intended web path accepts a local path and refuses other sites', function () {
+    $identity = app(Gigabyte\Identity\Services\IdentityService::class);
+
+    expect($identity->intendedWebPath('/reports/1?tab=notes#totals'))->toBe('/reports/1?tab=notes#totals')
+        ->and($identity->intendedWebPath('https://evil.test/reports'))->toBeNull()
+        ->and($identity->intendedWebPath('//evil.test/reports'))->toBeNull()
+        ->and($identity->intendedWebPath('reports/1'))->toBeNull();
+});
