@@ -230,7 +230,10 @@ test('intended web path accepts a local path and refuses other sites', function 
     $identity = app(Gigabyte\Identity\Services\IdentityService::class);
 
     expect($identity->intendedWebPath('/reports/1?tab=notes#totals'))->toBe('/reports/1?tab=notes#totals')
+        ->and($identity->intendedWebPath('/search?q=https://example.com'))->toBe('/search?q=https://example.com')
         ->and($identity->intendedWebPath('https://evil.test/reports'))->toBeNull()
         ->and($identity->intendedWebPath('//evil.test/reports'))->toBeNull()
+        ->and($identity->intendedWebPath('/%2f%2fevil.test'))->toBeNull()
+        ->and($identity->intendedWebPath('/%5cevil.test'))->toBeNull()
         ->and($identity->intendedWebPath('reports/1'))->toBeNull();
 });

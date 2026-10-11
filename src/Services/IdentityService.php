@@ -91,7 +91,8 @@ class IdentityService
      *
      * Only a root-relative path is accepted. Absolute URLs and
      * protocol-relative paths are refused so the parameter cannot
-     * send the browser to another site.
+     * send the browser to another site. The path is decoded a few
+     * times first, so an encoded `//` cannot slip through.
      */
     public function intendedWebPath(mixed $redirect): ?string
     {
@@ -100,19 +101,50 @@ class IdentityService
         }
 
         $redirect = trim($redirect);
-        if ($redirect === '' || preg_match('/[\x00-\x1F\x7F]/', $redirect) === 1) {
+        if ($redirect === '') {
             return null;
         }
 
-        if (! str_starts_with($redirect, '/') || str_starts_with($redirect, '//') || str_starts_with($redirect, '/\\')) {
-            return null;
+        $candidate = $redirect;
+        for ($pass = 0; $pass < 3; $pass++) {
+            if (! $this->isSameAppPath($candidate)) {
+                return null;
+            }
+
+            $decoded = rawurldecode($candidate);
+            if ($decoded === $candidate) {
+                return $redirect;
+            }
+
+            $candidate = $decoded;
         }
 
-        if (str_contains($redirect, '\\') || str_contains($redirect, '://')) {
-            return null;
+        return $this->isSameAppPath($candidate) ? $redirect : null;
+    }
+
+    /**
+     * The path must stay on this app. A URL inside the query or fragment
+     * is data, not the navigation target.
+     */
+    private function isSameAppPath(string $redirect): bool
+    {
+        if (preg_match('/[\x00-\x1F\x7F]/', $redirect) === 1) {
+            return false;
         }
 
-        return $redirect;
+        $path = $redirect;
+        $query = strpos($redirect, '?');
+        $fragment = strpos($redirect, '#');
+        $cut = $query === false ? $fragment : ($fragment === false ? $query : min($query, $fragment));
+        if ($cut !== false) {
+            $path = substr($redirect, 0, $cut);
+        }
+
+        if ($path === '' || ! str_starts_with($path, '/') || str_starts_with($path, '//') || str_starts_with($path, '/\\')) {
+            return false;
+        }
+
+        return ! str_contains($path, '\\') && ! str_contains($path, '://');
     }
 
     /**
