@@ -1,7 +1,7 @@
 {
   "title": "GIG-3906: Reusable Login Codes Until Expiry",
   "description": "Adds configurable reuse of short-lived login codes until expires_at so Safe Links and link previews can verify twice within TTL; long-lived invite codes stay single-use.",
-  "pr_url": "",
+  "pr_url": "https://github.com/gigabyte-software/package-identity/pull/3",
   "linear_url": "https://linear.app/gigabyte/issue/GIG-3906/reusable-login-codes-until-expiry-in-laravel-identity-package",
   "test_urls": [
     {
