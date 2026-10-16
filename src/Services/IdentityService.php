@@ -234,15 +234,15 @@ class IdentityService
         $userModel = config('identity.user_model');
         $user = $userModel::where('email', $loginCode->email)->firstOrFail();
 
-        if ($this->shouldRetainLoginCodeUntilExpiry($loginCode)) {
-            return $user;
+        if (! $this->shouldRetainLoginCodeUntilExpiry($loginCode)) {
+            if ($deleteSiblings) {
+                LoginCode::where('email', $loginCode->email)->delete();
+            } else {
+                $loginCode->delete();
+            }
         }
 
-        if ($deleteSiblings) {
-            LoginCode::where('email', $loginCode->email)->delete();
-        } else {
-            $loginCode->delete();
-        }
+        LoginCode::pruneExpired();
 
         return $user;
     }
@@ -265,13 +265,13 @@ class IdentityService
         $expiryMinutes = (int) config('identity.code_expiry_minutes', 10);
         $fudgeMinutes = 2;
 
-        if ($loginCode->created_at) {
-            $lifetimeMinutes = $loginCode->created_at->diffInMinutes($loginCode->expires_at);
-
-            return $lifetimeMinutes <= ($expiryMinutes + $fudgeMinutes);
+        if (! $loginCode->created_at) {
+            return false;
         }
 
-        return $loginCode->expires_at->lte(now()->addMinutes($expiryMinutes + $fudgeMinutes));
+        $lifetimeMinutes = $loginCode->created_at->diffInMinutes($loginCode->expires_at);
+
+        return $lifetimeMinutes <= ($expiryMinutes + $fudgeMinutes);
     }
 
     private function attemptsKey(string $email): string

@@ -36,6 +36,7 @@ test('verify returns token for valid code', function () {
         'email' => 'alice@example.com',
         'code' => '123456',
         'token' => 'test-token',
+        'created_at' => now(),
         'expires_at' => now()->addMinutes(10),
     ]);
 
@@ -48,6 +49,52 @@ test('verify returns token for valid code', function () {
         ->assertJsonStructure(['token', 'user'])
         ->assertJsonPath('user.email', 'alice@example.com');
     $this->assertDatabaseHas('identity_login_codes', ['email' => 'alice@example.com', 'code' => '123456']);
+});
+
+test('login codes without created_at remain single-use when reuse is enabled', function () {
+    User::factory()->create(['email' => 'alice@example.com']);
+
+    LoginCode::create([
+        'email' => 'alice@example.com',
+        'code' => '123456',
+        'token' => 'test-token',
+        'expires_at' => now()->addMinutes(10),
+    ]);
+
+    $this->postJson('/api/identity/auth/verify', [
+        'email' => 'alice@example.com',
+        'code' => '123456',
+    ])->assertOk();
+
+    $this->assertDatabaseMissing('identity_login_codes', ['email' => 'alice@example.com']);
+});
+
+test('successful verify prunes expired login codes for other users', function () {
+    User::factory()->create(['email' => 'alice@example.com']);
+    User::factory()->create(['email' => 'bob@example.com']);
+
+    LoginCode::create([
+        'email' => 'alice@example.com',
+        'code' => '123456',
+        'token' => 'alice-token',
+        'created_at' => now(),
+        'expires_at' => now()->addMinutes(10),
+    ]);
+    LoginCode::create([
+        'email' => 'bob@example.com',
+        'code' => '999999',
+        'token' => 'bob-token',
+        'created_at' => now()->subMinutes(20),
+        'expires_at' => now()->subMinutes(5),
+    ]);
+
+    $this->postJson('/api/identity/auth/verify', [
+        'email' => 'alice@example.com',
+        'code' => '123456',
+    ])->assertOk();
+
+    $this->assertDatabaseHas('identity_login_codes', ['email' => 'alice@example.com']);
+    $this->assertDatabaseMissing('identity_login_codes', ['email' => 'bob@example.com']);
 });
 
 test('verify allows reusing a short-lived code until expiry', function () {

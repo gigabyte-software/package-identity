@@ -19,3 +19,4 @@ Move Earl Kendrick’s Safe Links / link-preview hotfix into `gigabyte/laravel-i
 - `LoginCode` allows mass-assigning `created_at` for app-created invite rows.
 - Extended `AuthTest` for double verify, magic token reuse, flag off, and long-lived single-use.
 - Adjusted magic-token sibling test to run with reuse disabled (prior single-use behaviour).
+- Devin follow-up: prune expired rows on successful verify; rows without `created_at` are always single-use.
