@@ -13,6 +13,7 @@ class LoginCode extends Model
         'code',
         'token',
         'expires_at',
+        'created_at',
     ];
 
     public function getTable(): string

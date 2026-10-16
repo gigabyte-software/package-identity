@@ -66,6 +66,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Reusable Login Codes
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, short-lived codes issued by sendLoginCode() remain valid
+    | until expires_at instead of being deleted on first successful verification.
+    | Long-lived codes (e.g. invite links) stay single-use regardless.
+    |
+    */
+
+    'code_reusable_until_expiry' => (bool) env('IDENTITY_CODE_REUSABLE_UNTIL_EXPIRY', true),
+
+    /*
+    |--------------------------------------------------------------------------
     | Token Lifecycle
     |--------------------------------------------------------------------------
     */

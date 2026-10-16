@@ -47,7 +47,86 @@ test('verify returns token for valid code', function () {
     $response->assertOk()
         ->assertJsonStructure(['token', 'user'])
         ->assertJsonPath('user.email', 'alice@example.com');
+    $this->assertDatabaseHas('identity_login_codes', ['email' => 'alice@example.com', 'code' => '123456']);
+});
+
+test('verify allows reusing a short-lived code until expiry', function () {
+    User::factory()->create(['email' => 'alice@example.com']);
+
+    LoginCode::create([
+        'email' => 'alice@example.com',
+        'code' => '123456',
+        'token' => 'test-token',
+        'created_at' => now(),
+        'expires_at' => now()->addMinutes(10),
+    ]);
+
+    $this->postJson('/api/identity/auth/verify', [
+        'email' => 'alice@example.com',
+        'code' => '123456',
+    ])->assertOk();
+
+    $this->postJson('/api/identity/auth/verify', [
+        'email' => 'alice@example.com',
+        'code' => '123456',
+    ])->assertOk();
+
+    $this->assertDatabaseHas('identity_login_codes', ['email' => 'alice@example.com', 'code' => '123456']);
+});
+
+test('verify deletes short-lived code on success when reuse is disabled', function () {
+    config(['identity.code_reusable_until_expiry' => false]);
+
+    User::factory()->create(['email' => 'alice@example.com']);
+
+    LoginCode::create([
+        'email' => 'alice@example.com',
+        'code' => '123456',
+        'token' => 'test-token',
+        'created_at' => now(),
+        'expires_at' => now()->addMinutes(10),
+    ]);
+
+    $this->postJson('/api/identity/auth/verify', [
+        'email' => 'alice@example.com',
+        'code' => '123456',
+    ])->assertOk();
+
     $this->assertDatabaseMissing('identity_login_codes', ['email' => 'alice@example.com']);
+});
+
+test('long-lived login codes remain single-use when reuse is enabled', function () {
+    User::factory()->create(['email' => 'alice@example.com']);
+
+    LoginCode::create([
+        'email' => 'alice@example.com',
+        'code' => '123456',
+        'token' => 'invite-token',
+        'created_at' => now(),
+        'expires_at' => now()->addDays(7),
+    ]);
+
+    app(Gigabyte\Identity\Services\IdentityService::class)->verifyCode('alice@example.com', '123456');
+
+    $this->assertDatabaseMissing('identity_login_codes', ['email' => 'alice@example.com']);
+});
+
+test('magic token can be reused until expiry for short-lived codes', function () {
+    User::factory()->create(['email' => 'alice@example.com']);
+
+    LoginCode::create([
+        'email' => 'alice@example.com',
+        'code' => '111111',
+        'token' => 'token-a',
+        'created_at' => now(),
+        'expires_at' => now()->addMinutes(10),
+    ]);
+
+    $identity = app(Gigabyte\Identity\Services\IdentityService::class);
+
+    expect($identity->verifyMagicToken('token-a'))->not->toBeNull();
+    expect($identity->verifyMagicToken('token-a'))->not->toBeNull();
+    $this->assertDatabaseHas('identity_login_codes', ['token' => 'token-a']);
 });
 
 test('verify rejects invalid code', function () {
@@ -202,19 +281,23 @@ test('bound DomainResolver allows provisioning for domains not in config', funct
     $this->assertDatabaseHas('identity_login_codes', ['email' => 'bob.smith@dynamic.com']);
 });
 
-test('a magic token does not consume sibling login codes', function () {
+test('a magic token does not consume sibling login codes when reuse is disabled', function () {
+    config(['identity.code_reusable_until_expiry' => false]);
+
     User::factory()->create(['email' => 'alice@example.com']);
 
     LoginCode::create([
         'email' => 'alice@example.com',
         'code' => '111111',
         'token' => 'token-a',
+        'created_at' => now(),
         'expires_at' => now()->addMinutes(10),
     ]);
     LoginCode::create([
         'email' => 'alice@example.com',
         'code' => '222222',
         'token' => 'token-b',
+        'created_at' => now(),
         'expires_at' => now()->addMinutes(10),
     ]);
 
