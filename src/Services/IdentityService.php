@@ -234,13 +234,44 @@ class IdentityService
         $userModel = config('identity.user_model');
         $user = $userModel::where('email', $loginCode->email)->firstOrFail();
 
-        if ($deleteSiblings) {
-            LoginCode::where('email', $loginCode->email)->delete();
-        } else {
-            $loginCode->delete();
+        if (! $this->shouldRetainLoginCodeUntilExpiry($loginCode)) {
+            if ($deleteSiblings) {
+                LoginCode::where('email', $loginCode->email)->delete();
+            } else {
+                $loginCode->delete();
+            }
         }
 
+        LoginCode::pruneExpired();
+
         return $user;
+    }
+
+    private function shouldRetainLoginCodeUntilExpiry(LoginCode $loginCode): bool
+    {
+        if (! config('identity.code_reusable_until_expiry', true)) {
+            return false;
+        }
+
+        return $this->isShortLivedLoginCode($loginCode);
+    }
+
+    /**
+     * Short-lived codes come from sendLoginCode(); long-lived rows (e.g. invites)
+     * are treated as single-use even when reuse-until-expiry is enabled.
+     */
+    private function isShortLivedLoginCode(LoginCode $loginCode): bool
+    {
+        $expiryMinutes = (int) config('identity.code_expiry_minutes', 10);
+        $fudgeMinutes = 2;
+
+        if (! $loginCode->created_at) {
+            return false;
+        }
+
+        $lifetimeMinutes = $loginCode->created_at->diffInMinutes($loginCode->expires_at);
+
+        return $lifetimeMinutes <= ($expiryMinutes + $fudgeMinutes);
     }
 
     private function attemptsKey(string $email): string

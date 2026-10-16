@@ -1,0 +1,32 @@
+{
+  "title": "GIG-3906: Reusable Login Codes Until Expiry",
+  "description": "Adds configurable reuse of short-lived login codes until expires_at so Safe Links and link previews can verify twice within TTL; long-lived invite codes stay single-use.",
+  "pr_url": "https://github.com/gigabyte-software/package-identity/pull/3",
+  "linear_url": "https://linear.app/gigabyte/issue/GIG-3906/reusable-login-codes-until-expiry-in-laravel-identity-package",
+  "test_urls": [
+    {
+      "label": "GitHub Actions (tests)",
+      "url": "https://github.com/gigabyte-software/package-identity/actions"
+    }
+  ],
+  "test_plan": [
+    {
+      "description": "Pest suite covers reusable codes, expiry, flag off, and long-lived single-use",
+      "status": "stale",
+      "steps": [
+        "Open the PR checks on GitHub Actions",
+        "Confirm the test workflow completes successfully",
+        "Review AuthTest cases for double verify and magic token reuse"
+      ]
+    },
+    {
+      "description": "Devin fixes: prune on success and single-use when created_at is missing",
+      "status": "active",
+      "steps": [
+        "Confirm CI Pest run passes",
+        "Verify successful verify removes expired rows for other emails",
+        "Verify codes without created_at are deleted on first successful verify"
+      ]
+    }
+  ]
+}
